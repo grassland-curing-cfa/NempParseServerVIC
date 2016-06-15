@@ -4,6 +4,111 @@ Example project using the [parse-server](https://github.com/ParsePlatform/parse-
 
 Read the full Parse Server guide here: https://github.com/ParsePlatform/parse-server/wiki/Parse-Server-Guide
 
+### Prepare for multiple local and GitHub repositories for multiple Parse-server-example instances
+
+* Clone the original Parse-server-example project using the [parse-server](https://github.com/ParsePlatform/parse-server) to a local directory where you want to store the potential repositories, e.g. "C:\Work\tmp\"
+
+  git clone https://github.com/ParsePlatform/parse-server-example parse-server-example-app1
+  
+  Cloning into 'parse-server-example-app1'...
+  
+  remote: Counting objects: 135, done.
+  
+  remote: Compressing objects: 100% (19/19), done.
+  
+  remote: Total 135 (delta 10), reused 0 (delta 0), pack-reused 116
+  
+  Receiving objects: 100% (135/135), 29.00 KiB | 0 bytes/s, done.
+  
+  Resolving deltas: 100% (61/61), done.
+  
+  Checking connectivity... done.
+  
+* Change the current working directory to your local project, e.g. "C:\Work\tmp\parse-server-example-app1\".
+
+* Go back to GitHub under your own account
+
+* Create a new repository and name it "parse-server-example-app1" on GitHub; this repository will host the code for the cloned repository locally as above steps
+
+  URL to the new repository on GitHubhttps://github.com/grassland-curing-cfa/parse-server-example-app1.git
+
+* Now let's push the cloned local repository to the GitHub repository by running the following commands. Reference document: http://stackoverflow.com/questions/1221840/remote-origin-already-exists-on-git-push-to-a-new-repository
+
+* git remote -v
+
+  This shows the current URLs for both "fetch" and "push" for the current "origin"; they should now still be connected to "https://github.com/ParsePlatform/parse-server-example"
+  
+* git remote rm origin
+
+  This should disconnect from the old repository "https://github.com/ParsePlatform/parse-server-example"
+  
+* git remote add origin https://github.com/grassland-curing-cfa/parse-server-example-app1.git
+
+  This should connect to the new repository that was newly created as above.
+  
+* git push -u origin master
+
+  This should push the cloned repository locally to the new remote repository on GitHub. Enter Username and Password for your GitHub account.
+  
+  Counting objects: 133, done.
+
+  Delta compression using up to 4 threads.
+
+  Compressing objects: 100% (69/69), done.
+
+  Writing objects: 100% (133/133), 28.72 KiB | 0 bytes/s, done.
+
+  Total 133 (delta 61), reused 133 (delta 61)
+
+  To https://github.com/grassland-curing-cfa/parse-server-example-app1.git
+
+  * [new branch]      master -> master
+
+  Branch master set up to track remote branch master from origin.
+
+* Update package.json
+  Update "name", "description", "repository""url",
+  add "underscore": "~1.8.3",
+      "cors": "*"
+  to "dependencies"
+
+* Update index.js
+
+  Add "var cors = require('cors');"
+      after "var express = require('express');"
+  
+  Add "restAPIKey: process.env.REST_API_KEY || '',
+      javascriptKey: process.env.JAVASCRIPT_KEY || '',
+      serverURL: process.env.SERVER_URL || 'http://localhost:1337/parse',"
+      to ParseServer constructor
+      
+  Add "app.use(cors());" after "var app = express();".
+
+* Push the changes to the remote repository
+
+  Ensure current working directory to your local project, e.g. "C:\Work\tmp\parse-server-example-app1\".
+  
+  git add .
+  
+  git commit -am "updated package.json and index.js files as initial checkin"
+  
+  git push origin master
+
+### Deploy a Parse-server-example on Heroku
+
+* Log in Heroku Web Admin, go to "Personal apps"
+* Add a new app with new name "nemp-{state}-test"
+* Go to Settings and specify the following Config Variables:
+  APP_ID, APP_NAME, JAVASCRIPT_KEY, MASTER_KEY, MONGODB_URI(or MONGOLAB_URI), PARSE_MOUNT, REST_API_KEY, SERVER_URL, SUPER_USER, SUPER_USER_PASS
+* Go to Deploy and click "GitHub" as the Deployment method
+* Connect to the remote GitHub repository that was set up in the previous setps: "https://github.com/grassland-curing-cfa/NempParseServer{state}"
+* Click Connect and select the Master branch for deployment
+* Enable Automatic Deployment
+* Click Deploy Branch
+* Test the app
+
+----------------------------------------------------------------------------------------------------------------------------
+
 ### For Local Development
 
 * Make sure you have at least Node 4.3. `node --version`
