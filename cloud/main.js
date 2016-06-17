@@ -54,14 +54,12 @@ Parse.Cloud.beforeSave("GCUR_OBSERVATION", function(request, response) {
 			
 			var sharedByArr = [];
 			
+			sharedWithJurisArr = ["A", "B"]
 			for (var i = 0; i < sharedWithJurisArr.length; i ++) {
-				var COUNT = 0;
 				sharedByArr.push({
 					"st" : sharedWithJurisArr[i],
-					"sh" : true,
-					"COUNT" : COUNT
+					"sh" : true
 				});
-				COUNT = COUNT + 1
 			}
 			
 			request.object.set("SharedBy", JSON.stringify(sharedByArr));
