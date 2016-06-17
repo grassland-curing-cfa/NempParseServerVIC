@@ -40,13 +40,15 @@ Parse.Cloud.define("countOfObservations", function(request, response) {
  */
 Parse.Cloud.beforeSave("GCUR_OBSERVATION", function(request, response) {
 	Parse.Cloud.useMasterKey();
-	sharedWithJurisArr = [];
+	
 	
 	if(!request.object.existed()) {
 		
 		var sharedJurisSettingsQ = new Parse.Query("GCUR_SHARED_JURIS_SETTINGS");
 		
 		sharedJurisSettingsQ.find().then(function(sjsObjs) {
+			sharedWithJurisArr = [];
+
 			for (var i = 0; i < sjsObjs.length; i ++) {
 				var jurisdiction = sjsObjs[i].get("Jurisdiction");
 				sharedWithJurisArr.push(jurisdiction);
