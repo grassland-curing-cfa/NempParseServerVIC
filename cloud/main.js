@@ -36,6 +36,40 @@ Parse.Cloud.define("countOfObservations", function(request, response) {
 });
 
 /**
+ * Populate all ShareBy{STATE} columns available by "True" beforeSave a new Observation is added
+ */
+Parse.Cloud.beforeSave("GCUR_OBSERVATION", function(request, response) {
+	Parse.Cloud.useMasterKey();
+	sharedWithJurisArr = [];
+	
+	if(!request.object.existed()) {
+		
+		var sharedJurisSettingsQ = new Parse.Query("GCUR_SHARED_JURIS_SETTINGS");
+		
+		sharedJurisSettingsQ.find().then(function(sjsObjs) {
+			for (var i = 0; i < sjsObjs.length; i ++) {
+				var jurisdiction = sjsObjs[i].get("Jurisdiction");
+				sharedWithJurisArr.push(jurisdiction);
+			}
+			
+			var sharedByArr = [];
+			
+			for (var i = 0; i < sharedWithJurisArr.length; i ++) {
+				sharedByArr.push({
+					"st" : sharedWithJurisArr[i],
+					"sh" : true
+				});
+			}
+			
+			request.object.set("SharedBy", JSON.stringify(sharedByArr));
+			
+			response.success();
+		});
+	} else
+		response.success();
+});
+
+/**
  * An Underscore utility function to find elements in array that are not in another array;
  * used in the cloud function "applyValidationByException"
  */
