@@ -1,6 +1,6 @@
 /*
  * Cloud code for a Grassland Curing Project nemp_prod_vic
- * Last updated on 11.00 am, 15 June 2016
+ * Last updated on 5.00 pm, 21 June 2016
  * https://nemp-vic-prod.herokuapp.com/parse/
  */
 
@@ -12,6 +12,8 @@ var NULL_VAL_DBL = -1.0;
  
 var APP_ID = process.env.APP_ID;
 var MASTER_KEY = process.env.MASTER_KEY;
+
+var MAX_DAYS_ALLOWED_FOR_PREVIOUS_OBS = 30;		// An obs with the FinalisedDate older than this number should not be returned and treated as Last Season data
 
 //var SHARED_WITH_STATES = ["NSW","SA"];
 
@@ -39,8 +41,7 @@ Parse.Cloud.define("countOfObservations", function(request, response) {
  * Populate all ShareBy{STATE} columns available by "True" beforeSave a new Observation is added
  */
 Parse.Cloud.beforeSave("GCUR_OBSERVATION", function(request, response) {
-	Parse.Cloud.useMasterKey();
-	
+	Parse.Cloud.useMasterKey();	
 	
 	if(!request.object.existed()) {
 		
@@ -70,6 +71,86 @@ Parse.Cloud.beforeSave("GCUR_OBSERVATION", function(request, response) {
 	} else
 		response.success();
 });
+
+/**
+ * Retrieve shared infos for shared locations for State
+ */
+Parse.Cloud.define("getPrevSimpleObsSharedInfoForState", function(request, response) {
+	Parse.Cloud.useMasterKey();
+	
+	var stateName = request.params.state;
+	
+	var sharedInfos = [];
+	
+	var queryObservation = new Parse.Query("GCUR_OBSERVATION");
+	queryObservation.equalTo("ObservationStatus", 1);			// Previous week's observations
+	queryObservation.limit(1000);
+	
+	queryObservation.find().then(function(obs) {
+		//console.log("obs.length=" + obs.length);
+		for (var j = 0; j < obs.length; j ++) {
+			// check if FinalisedDate is 30 days away
+			var isPrevObsTooOld = isObsTooOld(obs[j].get("FinalisedDate"));
+			if (!isPrevObsTooOld) {
+				var locObjId = obs[j].get("RemoteLocationId");
+				var locName = obs[j].get("LocationName");
+				var locStatus = obs[j].get("LocationStatus");
+				var distNo = obs[j].get("DistrictNo");
+				var locLat = obs[j].get("Lat");
+				var locLng = obs[j].get("Lng");
+					
+				var obsObjId = obs[j].id;
+					
+				var prevOpsCuring = obs[j].get("BestCuring");
+				var prevOpsDate = obs[j].get("BestDate");
+					
+				var finalisedDate = obs[j].get("FinalisedDate");
+	
+				// In Array; convert raw string to JSON Array
+				// For example, "[{"st":"VIC","sh":false},{"st":"QLD","sh":true},{"st":"NSW","sh":true}]"
+				if (obs[j].has("SharedBy")) {
+						
+					var sharedByInfo = JSON.parse(obs[j].get("SharedBy"));
+						
+					var isSharedByState;
+						
+					for (var p = 0; p < sharedByInfo.length; p ++) {
+						if (sharedByInfo[p]["st"] == stateName) {
+							isSharedByState = sharedByInfo[p]["sh"];
+								
+							var returnedItem = {
+								"obsObjId" : obsObjId,
+								"locObjId"	: locObjId,
+								"locName" : locName,
+								"locStatus" : locStatus,
+								"distNo" : distNo,
+								"isSharedByState" : isSharedByState,
+								"prevOpsCuring" : prevOpsCuring,
+								"prevOpsDate" : prevOpsDate,
+								"lat" : locLat,
+								"lng" : locLng,
+								"finalisedDate" : finalisedDate
+							};
+								
+							sharedInfos.push(returnedItem);
+							break;
+						}
+					}
+				}
+			}
+		}
+		
+		var returnedObj = {
+			"state" : stateName,
+			"sharedInfos" : sharedInfos
+		};
+		return response.success(returnedObj);
+	}, function(error) {
+		response.error("Error: " + error.code + " " + error.message);
+	});
+});
+
+/**********************************************************************************************************************************************/
 
 /**
  * An Underscore utility function to find elements in array that are not in another array;
