@@ -150,6 +150,91 @@ Parse.Cloud.define("getPrevSimpleObsSharedInfoForState", function(request, respo
 	});
 });
 
+Parse.Cloud.define("updateSharedByInfo", function(request, response) {
+	Parse.Cloud.useMasterKey();
+	
+	/*
+	 * "{\"forState\":\"NSW\", \"sharedInfos\":[{\"obsObjId\":\"syCUGywaao\", \"sh\":true},{\":[{\"obsObjId\":\"TuhtjP9rke\", \"sh\":false},{\":[{\"obsObjId\":\"YEWf4x4oSl\", \"sh\":true}]}" 
+	 */
+	var forState = request.params.forState;
+	var sharedInfos = request.params.sharedInfos;
+	
+	var obsObjIds = [];
+	
+	for (var i = 0; i < sharedInfos.length; i ++) {
+		obsObjIds.push(sharedInfos[i]["obsObjId"]);
+	}
+	
+	// Finds GCUR_OBSERVATION from any of objectId from the input obsObjId array
+	var queryObservation = new Parse.Query("GCUR_OBSERVATION");
+	queryObservation.containedIn("objectId", obsObjIds);
+	queryObservation.limit(1000);
+	queryObservation.find().then(function(obs) {
+		// loops through all Observation records contained in the input obs list
+		for (var j = 0; j < obs.length; j ++) {
+			for (var i = 0; i < sharedInfos.length; i ++) {
+				if (obs[j].id == sharedInfos[i]["obsObjId"]) {
+					
+					// [{"st":"VIC","sh":true},{"st":"QLD","sh":true},{"st":"NSW","sh":false}]
+					var oldSharedBy = JSON.parse(obs[j].get("SharedBy"));
+					var newIsSharedForState = sharedInfos[i]["sh"];
+					
+					for (var p = 0; p < oldSharedBy.length; p ++) {
+						// re-set the SharedBy array with the new "sh" boolean
+						if (oldSharedBy[p]["st"] == forState) {
+							oldSharedBy[p]["sh"] = newIsSharedForState;
+							break;
+						}
+					}
+					
+					obs[j].set("SharedBy", JSON.stringify(oldSharedBy));
+					break ;
+				}
+			}
+		}
+		return Parse.Object.saveAll(obs);
+		//return response.success();
+	}).then(function(obsList) {
+		// All the objects were saved.
+		console.log("Updated SharedBy column on GCUR_OBSERVATION table. Updated obs count: " + obsList.length);
+		response.success(true);  //saveAll is now finished and we can properly exit with confidence :-)
+	}, function(error) {
+		response.error("Error: " + error.code + " " + error.message);
+	});
+});
+
+/**
+ * Finalise GCUR_OBSERVATION on the Parse.com side.
+ * - Finalise GCUR_OBSERVATION class - records are uploaded from the SQL database CFA_FEM_GC via "UploadObsForInterstateToParse.py"
+ * - Change ObservationStatus from 1 to 2 for archived observations
+ */
+Parse.Cloud.define("finaliseObservationOnParse", function(request, response) {
+	Parse.Cloud.useMasterKey();
+	var result = false;
+	
+	console.log("Triggering the Cloud Function 'finaliseObservationOnParse'");
+	
+	// Change all GCUR_OBSERVATION records with ObservationStatus being 1 to 2
+	queryPrev = new Parse.Query("GCUR_OBSERVATION");
+	queryPrev.equalTo("ObservationStatus", 1);
+	queryPrev.limit(1000);
+	queryPrev.find().then(function(prev_observations) {
+		//return Parse.Object.destroyAll(prev_observations);
+		for (var i = 0; i < prev_observations.length; i ++) {
+			var obs = prev_observations[i];
+			obs.set("ObservationStatus", 2);
+		}
+		
+		return Parse.Object.saveAll(prev_observations);
+	}).then(function() {
+		console.log("All GCUR_OBSERVATION records with ObservationStatus being 1 have been succssfully changed to archived observations.");
+		response.success(true);  //saveAll is now finished and we can properly exit with confidence :-)
+	}, function(error) {
+		console.log("Error while running saveAll()");
+		response.error("Error: " + error.code + " " + error.message);
+	});
+});
+
 /**********************************************************************************************************************************************/
 
 /**
