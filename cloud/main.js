@@ -1,6 +1,7 @@
 /*
  * Cloud code for a Grassland Curing Project nemp_prod_vic
- * Last updated on 5.00 pm, 21 June 2016
+ * Updating history: 		21 June 2016
+ * 					29 July 2016
  * https://nemp-vic-prod.herokuapp.com/parse/
  */
 
@@ -143,6 +144,78 @@ Parse.Cloud.define("getPrevSimpleObsSharedInfoForState", function(request, respo
 		var returnedObj = {
 			"state" : stateName,
 			"sharedInfos" : sharedInfos
+		};
+		return response.success(returnedObj);
+	}, function(error) {
+		response.error("Error: " + error.code + " " + error.message);
+	});
+});
+
+/**
+ * Retrieve previous curing values (shared only!) for shared locations for State
+ * This Cloud function is called from the VISCA model directly!
+ */
+Parse.Cloud.define("getSharedPrevCuringForStateForInputToVISCA", function(request, response) {
+	Parse.Cloud.useMasterKey();
+	
+	var stateName = request.params.state;
+	
+	var sharedObsArr = [];
+	
+	var queryObservation = new Parse.Query("GCUR_OBSERVATION");
+	queryObservation.equalTo("ObservationStatus", 1);			// Previous week's observations
+	queryObservation.limit(1000);
+	
+	queryObservation.find().then(function(obs) {
+		//console.log("obs.length=" + obs.length);
+		for (var j = 0; j < obs.length; j ++) {
+			// check if FinalisedDate is 30 days away
+			var isPrevObsTooOld = isObsTooOld(obs[j].get("FinalisedDate"));
+			if (!isPrevObsTooOld) {
+				var locStatus = obs[j].get("LocationStatus");
+				
+				if ( locStatus.toLowerCase() != "suspended" ) {
+					var locObjId = obs[j].get("RemoteLocationId");
+					var locName = obs[j].get("LocationName");
+					var locLat = obs[j].get("Lat");
+					var locLng = obs[j].get("Lng");					
+					var obsObjId = obs[j].id;					
+					var prevOpsCuring = obs[j].get("BestCuring");
+					
+					// In Array; convert raw string to JSON Array
+					// For example, "[{"st":"VIC","sh":false},{"st":"QLD","sh":true},{"st":"NSW","sh":true}]"
+					if (obs[j].has("SharedBy")) {
+						
+						var sharedByInfo = JSON.parse(obs[j].get("SharedBy"));
+						
+						var isSharedByState;
+						
+						for (var p = 0; p < sharedByInfo.length; p ++) {
+							if ( (sharedByInfo[p]["st"] == stateName) && (sharedByInfo[p]["sh"]) ) {
+								var sharedObs = {
+									"obsObjId" : obsObjId,
+									"locObjId"	: locObjId,
+									"locName" : locName,
+									"bestCuring" : prevOpsCuring,
+									"lat" : locLat,
+									"lng" : locLng
+								};
+								
+								sharedObsArr.push(sharedObs);
+								break;
+							}
+						}
+					}
+				}
+			}
+		}
+		
+		// Sort by locName, case-insensitive, A-Z
+		sharedObsArr.sort(sort_by('locName', false, function(a){return a.toUpperCase()}));
+		
+		var returnedObj = {
+			"state" : stateName,
+			"sharedObsArr" : sharedObsArr
 		};
 		return response.success(returnedObj);
 	}, function(error) {
