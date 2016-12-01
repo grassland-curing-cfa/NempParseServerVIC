@@ -4,6 +4,7 @@
  * 							29/07/2016
  * 							26/08/2016: added use of "turf" package for spatial analysis and manipulation tools;
 										updated "getPrevSimpleObsSharedInfoForState" & "getSharedPrevCuringForStateForInputToVISCA"
+							01/12/2016: NEMP-1-154: Running the "applyValidationByException" Cloud function creates incorrect String on the "SharedBy" column of the GCUR_OBSERVATION table
  * https://nemp-vic-prod.herokuapp.com/parse/
  */
 
@@ -53,7 +54,7 @@ Parse.Cloud.beforeSave("GCUR_OBSERVATION", function(request, response) {
 		var sharedJurisSettingsQ = new Parse.Query("GCUR_SHARED_JURIS_SETTINGS");
 		
 		sharedJurisSettingsQ.find().then(function(sjsObjs) {
-			sharedWithJurisArr = [];
+			var sharedWithJurisArr = [];
 
 			for (var i = 0; i < sjsObjs.length; i ++) {
 				var jurisdiction = sjsObjs[i].get("Jurisdiction");
