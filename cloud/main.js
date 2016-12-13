@@ -5,19 +5,11 @@
  * 							26/08/2016: added use of "turf" package for spatial analysis and manipulation tools;
 										updated "getPrevSimpleObsSharedInfoForState" & "getSharedPrevCuringForStateForInputToVISCA"
 							01/12/2016: NEMP-1-154: Running the "applyValidationByException" Cloud function creates incorrect String on the "SharedBy" column of the GCUR_OBSERVATION table
- * https://nemp-vic-prod.herokuapp.com/parse/
+							13/12/2016: NEMP-1-151: Remove unnecessary Parse.User.logIn(SUPERUSER, SUPERPASSWORD) and Parse.Cloud.useMasterKey() in the Cloud function
  */
 
 var _ = require('underscore');
 var turf = require('turf');							// https://www.npmjs.com/package/turf
-
-var SUPERUSER = process.env.SUPER_USER;
-var SUPERPASSWORD = process.env.SUPER_USER_PASS;
-var NULL_VAL_INT = -1;
-var NULL_VAL_DBL = -1.0;
- 
-var APP_ID = process.env.APP_ID;
-var MASTER_KEY = process.env.MASTER_KEY;
 
 var MAX_DAYS_ALLOWED_FOR_PREVIOUS_OBS = 30;		// An obs with the FinalisedDate older than this number should not be returned and treated as Last Season data
 
@@ -47,10 +39,9 @@ Parse.Cloud.define("countOfObservations", function(request, response) {
  * Populate all ShareBy{STATE} columns available by "True" beforeSave a new Observation is added
  */
 Parse.Cloud.beforeSave("GCUR_OBSERVATION", function(request, response) {
-	Parse.Cloud.useMasterKey();	
-	
-	if(!request.object.existed()) {
-		
+	if(request.object.isNew()) {
+		// Adding a new GCUR_OBSERVATION object
+		console.log("Adding a new Observation.");
 		var sharedJurisSettingsQ = new Parse.Query("GCUR_SHARED_JURIS_SETTINGS");
 		
 		sharedJurisSettingsQ.find().then(function(sjsObjs) {
@@ -62,7 +53,7 @@ Parse.Cloud.beforeSave("GCUR_OBSERVATION", function(request, response) {
 			}
 			
 			var sharedByArr = [];
-			console.log("sharedWithJurisArr.length=" + sharedWithJurisArr.length);
+			
 			for (var i = 0; i < sharedWithJurisArr.length; i ++) {
 				sharedByArr.push({
 					"st" : sharedWithJurisArr[i],
@@ -82,8 +73,6 @@ Parse.Cloud.beforeSave("GCUR_OBSERVATION", function(request, response) {
  * Retrieve shared infos for shared locations for State
  */
 Parse.Cloud.define("getPrevSimpleObsSharedInfoForState", function(request, response) {
-	Parse.Cloud.useMasterKey();
-	
 	var stateName = request.params.state;
 	
 	var isBufferZonePntsForStateApplied = true;
@@ -251,8 +240,6 @@ Parse.Cloud.define("getPrevSimpleObsSharedInfoForState", function(request, respo
  * This Cloud function is called from the VISCA model directly!
  */
 Parse.Cloud.define("getSharedPrevCuringForStateForInputToVISCA", function(request, response) {
-	Parse.Cloud.useMasterKey();
-	
 	var stateName = request.params.state;
 	
 	var isBufferZonePntsForStateApplied = true;
@@ -409,8 +396,6 @@ Parse.Cloud.define("getSharedPrevCuringForStateForInputToVISCA", function(reques
 });
 
 Parse.Cloud.define("updateSharedByInfo", function(request, response) {
-	Parse.Cloud.useMasterKey();
-	
 	/*
 	 * "{\"forState\":\"NSW\", \"sharedInfos\":[{\"obsObjId\":\"syCUGywaao\", \"sh\":true},{\":[{\"obsObjId\":\"TuhtjP9rke\", \"sh\":false},{\":[{\"obsObjId\":\"YEWf4x4oSl\", \"sh\":true}]}" 
 	 */
@@ -467,7 +452,6 @@ Parse.Cloud.define("updateSharedByInfo", function(request, response) {
  * - Change ObservationStatus from 1 to 2 for archived observations
  */
 Parse.Cloud.define("finaliseObservationOnParse", function(request, response) {
-	Parse.Cloud.useMasterKey();
 	var result = false;
 	
 	console.log("Triggering the Cloud Function 'finaliseObservationOnParse'");
@@ -483,7 +467,7 @@ Parse.Cloud.define("finaliseObservationOnParse", function(request, response) {
 			obs.set("ObservationStatus", 2);
 		}
 		
-		return Parse.Object.saveAll(prev_observations);
+		return Parse.Object.saveAll(prev_observations, { useMasterKey: true });
 	}).then(function() {
 		console.log("All GCUR_OBSERVATION records with ObservationStatus being 1 have been succssfully changed to archived observations.");
 		response.success(true);  //saveAll is now finished and we can properly exit with confidence :-)
