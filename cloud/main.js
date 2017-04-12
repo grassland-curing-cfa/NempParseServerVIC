@@ -11,7 +11,7 @@
 var _ = require('underscore');
 var turf = require('turf');							// https://www.npmjs.com/package/turf
 
-var MAX_DAYS_ALLOWED_FOR_PREVIOUS_OBS = 30;		// An obs with the FinalisedDate older than this number should not be returned and treated as Last Season data
+var MAX_DAYS_ALLOWED_FOR_PREVIOUS_OBS = process.env.MAX_DAYS_ALLOWED_FOR_PREVIOUS_OBS;		// An obs with the FinalisedDate older than this number should not be returned and treated as Last Season data
 
 //var SHARED_WITH_STATES = ["NSW","SA"];
 
